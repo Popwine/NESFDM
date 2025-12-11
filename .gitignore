@@ -1,0 +1,28 @@
+# 忽略 CMake 构建输出
+build/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+# test femora
+# 编译输出
+*.dll
+*.o
+*.obj
+*.a
+*.so
+*.exe
+*.out
+*.log
+
+# 编辑器设置
+.vscode/
+*.swp
+*~
+
+# IDE project files
+*.user
+*.sdf
+*.vcxproj*
+.idea/
+*.DS_Store
