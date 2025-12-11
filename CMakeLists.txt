@@ -8,6 +8,7 @@ add_library(NESFDMCore STATIC
     src/ModelParameters.cpp include/ModelParameters.h
     src/RungeKutta4.cpp include/RungeKutta4.h
     src/NESSolver.cpp include/NESSolver.h
+    src/NESFDMUtils.cpp include/NESFDMUtils.h
 )
 
 target_include_directories(NESFDMCore PUBLIC

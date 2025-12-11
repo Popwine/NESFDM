@@ -10,58 +10,8 @@
 #include "CLI11.hpp"
 #include "RungeKutta4.h"
 #include "ModelParameters.h"
-#define PI 	3.14159265358979323846
+#include "NESFDMUtils.h"
 
-bool isEQ(double a, double b) {
-	return std::abs(a - b) < 1e-10;
-}
-
-
-double getRms(const std::vector<std::vector<double>>& data,
-	size_t index, double startTime = 0.0)
-{
-	if (data.empty() || index >= data[0].size()) return 0.0;
-
-	double dt = data[1][0] - data[0][0];
-	size_t startIndex = static_cast<size_t>(startTime / dt);
-
-	if (startIndex >= data.size()) return 0.0;
-
-	double sum = 0.0;
-	size_t count = data.size();
-
-	for (size_t i = startIndex; i < count; i++) {
-		sum += data[i][index] * data[i][index];
-	}
-
-	return std::sqrt(sum / (count - startIndex));
-}
-double getMax(const std::vector<std::vector<double>>& data, size_t index, double startTime = 0.0) {
-	if (data.empty() || index >= data[0].size()) return 0.0;
-	double dt = data[1][0] - data[0][0];
-	size_t startIndex = static_cast<size_t>(startTime / dt);
-	if (startIndex >= data.size()) return 0.0;
-	double maxVal = std::numeric_limits<double>::lowest();
-	for (size_t i = startIndex; i < data.size(); i++) {
-		if (data[i][index] > maxVal) {
-			maxVal = data[i][index];
-		}
-	}
-	return maxVal;
-}
-
-class DisplacementResults {
-public:
-	double yRms;
-	double yMax;
-	void print(double D) const {
-		std::cout << std::setprecision(10) << yRms / D << "\t" << yMax / D << std::endl;
-	}
-	void printRms(double D) const {
-		std::cout << std::setprecision(10) << yRms / D << std::endl;
-	}
-
-};
 
 DisplacementResults integrateDoubleNes(
 	double U_star = 1.7,
@@ -223,70 +173,6 @@ DisplacementResults integrateDoubleNes(
 	double yMax = getMax(results, 1, resultCalcStartTime);
 	return DisplacementResults{ yRms,yMax };
 }
-struct Config {
-	// --- 必填参数 ---
-	double mr1 = 0.0; bool has_mr1 = false;
-	double mr2 = 0.0; bool has_mr2 = false;
-	double kr1 = 0.0; bool has_kr1 = false;
-	double kr2 = 0.0; bool has_kr2 = false;
-	double cr1 = 0.0; bool has_cr1 = false;
-	double cr2 = 0.0; bool has_cr2 = false;
-
-	// --- 选填参数 (带默认值) ---
-	double a = 0.01;
-	double ts = 0.001;
-	double ct = 500.0;
-	double fd = 1.117;
-	double fn = 1.117;
-	double ur = 1.7;
-	std::string config = "";
-	std::string objective_function = "max_avg";
-	// 特殊处理：rct 的默认值依赖于 ct
-	// 我们使用一个标志位来判断用户是否输入了该值
-	double rct = 0.0;
-	bool has_rct = false;
-
-	std::string save = "";
-};
-void get_avg_max(const std::vector<DisplacementResults>& allResults, double& jYRms, double& jYMax) {
-	jYRms = 0.0;
-	jYMax = 0.0;
-	std::function<double(double, double, double)> max = [](double a, double b, double c) {
-		return std::max(std::max(a, b), c);
-		};
-	double max1 = max(
-		allResults[0].yRms,
-		allResults[1].yRms,
-		allResults[2].yRms
-	);
-	double max2 = max(
-		allResults[3].yRms,
-		allResults[4].yRms,
-		allResults[5].yRms
-	);
-	double max3 = max(
-		allResults[6].yRms,
-		allResults[7].yRms,
-		allResults[8].yRms
-	);
-	jYRms = (max1 + max2 + max3) / 3.0;
-	double maxY1 = max(
-		allResults[0].yMax,
-		allResults[1].yMax,
-		allResults[2].yMax
-	);
-	double maxY2 = max(
-		allResults[3].yMax,
-		allResults[4].yMax,
-		allResults[5].yMax
-	);
-	double maxY3 = max(
-		allResults[6].yMax,
-		allResults[7].yMax,
-		allResults[8].yMax
-	);
-	jYMax = (maxY1 + maxY2 + maxY3) / 3.0;
-}
 int main(int argc, char* argv[]){
     CLI::App app{"Double NES Scanner"};
     double initialAStar = 0.01;
@@ -295,7 +181,7 @@ int main(int argc, char* argv[]){
     double resultCalcStartTao = 250;
     
     app.add_option("-a,--initial-a-star", initialAStar, "Initial AStar");
-    app.add_option("-a,--initial-a-star", initialAStar, "Initial AStar");
+    app.add_option("-rct,--result-calc-start-tao", resultCalcStartTao, "Result Calculation Start Time");
     CLI11_PARSE(app, argc, argv);
     std::cout << initialAStar;
     return 0;
