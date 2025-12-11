@@ -1,18 +1,20 @@
 #pragma once
 #include <functional>
-class NES{
-    double mr;
-    double kr;
-    double cr;
-    double m;
-    double k;
-    double c;
+struct NES{
+    double mr = 0.01;
+    double kr = 1.0;
+    double cr = 1.0;
+    double m = 0.0;
+    double k = 0.0;
+    double c = 0.0;
 };
 class MainStructure{
 public:
+    MainStructure();
     void setFN(double fn_){fNatrual = fn_; refreshFReal(); refreshDynParams();};
     void setFNByMode(int mode);
     void setUStar(double u_){UStar = u_; refreshFReal(); };
+    void print();
 private:
 	double rouFluid = 1.225;
     double UStar = 1.7;
@@ -29,19 +31,22 @@ private:
 
     void refreshFReal();
     void refreshDynParams();
+    
+public:
+    double getFN() const{return fNatrual;};
 };
 class NESSolver{
 public:
-    NESSolver(unsigned int nesNumber_);
+    NESSolver(const unsigned int nesNumber_);
     ~NESSolver();
 
 
 private:
-    unsigned int nesNumber;
-    unsigned int dimension;
+    const unsigned int nesNumber;
+    const unsigned int dimension;
     MainStructure main;
 
-    std::vector<NES> ness;
+    std::vector<NES> nes;
     double initialAStar = 0.06;
     double fDesign = 1.117;
 
@@ -52,12 +57,17 @@ private:
     double timeStepSize = 0.001;
     double totalTime = 500;
     double resultCalcStartTime = 100.0;
+public:
     void setUStar(double u_){main.setUStar(u_);};
 
-    void setInitialAStar(double a_){initialAStar = a_;};
-    void setFD(double fd_){fDesign = fd_;};
-    void setFN(double fn_){main.setFN(fn_);};
+    void setInitialAStar(double a_){initialAStar = a_; };
+    void setFD(double fd_){fDesign = fd_; };
+    void setFN(double fn_){main.setFN(fn_); };
 
+    std::vector<std::function<void(double)>> setMr;
+    std::vector<std::function<void(double)>> setKr;
+    std::vector<std::function<void(double)>> setCr;
     std::vector<std::function<double(const std::vector<double>&)>> funcs;
-    
+public:
+    double getFD() const{return fDesign;};
 };
