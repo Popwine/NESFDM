@@ -17,7 +17,7 @@ public:
 
 	ModelParameters(double U_star_, std::string modelParamFile);
 	ModelParameters(double U_star_);
-	double getUStar() const { return U_star; }
+	double getUStar() const { return U_star; };
 	void getAeroCoeffs(double A_star, double& h1_out, double& h4_out) const;
 
 private:

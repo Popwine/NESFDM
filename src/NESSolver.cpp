@@ -1,47 +1,260 @@
 #include "NESSolver.h"
-#include "NESFDMUtils.h"
+
+#include "RungeKutta4.h"
 #include <math.h>
 
 NESSolver::NESSolver(const unsigned int nesNumber_):
 nesNumber(nesNumber_),
-dimension(3 + 2 * nesNumber_)
+dimension(3 + 2 * nesNumber_),
+main(),
+model(main.getUstar())
 {
     nes.resize(nesNumber);
-    setMr.resize(nesNumber);
-    setKr.resize(nesNumber);
-    setCr.resize(nesNumber);
-    for(int i = 0; i < nesNumber; i++){
-        setMr[i] = [this, i](double mr_){
-            this->nes[i].mr = mr_;
-        };
-        setKr[i] = [this, i](double kr_){
-            this->nes[i].kr = kr_;
-        };
-        setCr[i] = [this, i](double cr_){
-            this->nes[i].cr = cr_;
-        };
-    }
 
-    funcs.resize(dimension);
-    // function 0 t
-    funcs[0] = [](const std::vector<double>& state) { return 1; }; // t
-    // functions  yp, ya1, ya2... yan
-    // index      1,  2,   3,     n+1
-    // return     n+2,n+3, n+4,   2n+2
 
-    for(int i = 1; i <= nesNumber + 1; i++){
-        funcs[i] = [this, i](const std::vector<double>& state) { return state[i + nesNumber + 1]; }; 
-    }
 
     
+    refreshTao();
+    refreshDesignValue();
+    refreshNES();
+    refreshFuncs();
     
 
 }
 
 NESSolver::~NESSolver(){
+    
+}
+void NESSolver::setFD(double fd_){
+    fDesign = fd_; 
+    refreshAll();
+};
+void NESSolver::setMainFN(double fn_){
+    main.setFN(fn_); 
+    refreshAll();
+};
+void NESSolver::setUStar(double u_){
+    main.setUStar(u_); 
+    refreshDesignValue();
+    refreshNES();
+    refreshFuncs();
+};
+void NESSolver::setMainFNByMode(int mode_){
+    main.setFNByMode(mode_);
+    refreshDesignValue();
+    refreshNES();
+    refreshFuncs();
+};
+void NESSolver::setTaoStepSize(double taoStepSize_){
+    taoStepSize = taoStepSize_;
+    refreshTao();
+}
+void NESSolver::setTotalTao(double totalTao_){
+    totalTao = totalTao_;
+    refreshTao();
+}
+void NESSolver::setResultCalcStartTao(double resultCalcStartTime_){
+    resultCalcStartTao = resultCalcStartTime_;
+    refreshTao();
+}
+
+void NESSolver::setNESMr(size_t i, double mr_){
+    if(i == 0 || i > nesNumber){
+        throw std::runtime_error("Index out of range in setNESMr, i is a 1-based index.");
+    }
+    this->nes[i-1].mr = mr_;
+    this->nes[i-1].m = main.getM() * mr_;
+}
+void NESSolver::setNESKr(size_t i, double kr_){
+    if(i == 0 || i > nesNumber){
+        throw std::runtime_error("Index out of range in setNESKr, i is a 1-based index.");
+    }
+    refreshDesignValue();
+    this->nes[i-1].kr = kr_;
+    this->nes[i-1].k = kDesign * kr_ / main.getD() / main.getD();
+}
+void NESSolver::setNESCr(size_t i, double cr_){
+    if(i == 0 || i > nesNumber){
+        throw std::runtime_error("Index out of range in setNESCr, i is a 1-based index.");
+    }
+    refreshDesignValue();
+    this->nes[i-1].cr = cr_;
+    this->nes[i-1].c = cDesign * cr_;
+}
+DisplacementResults NESSolver::run(){
+    refreshAll();
+    int numSteps = static_cast<int>(totalTime / timeStepSize);
+    
+    RungeKutta4 rk4(dimension, timeStepSize, numSteps, funcs);
+    double D = main.getD();
+    std::vector<double> state;
+    state.push_back(0.0);
+    for(int i = 1; i <= nesNumber + 1; i++){
+        state.push_back(initialAStar * D);
+    }
+    for(int i = 1; i <= nesNumber + 1; i++){
+        state.push_back(0.0);
+    }
+    
+    
+    std::ofstream ofs(outputFile);
+	std::vector<std::vector<double>> results;
+	std::function<void(const std::vector<double>&)> stepFunction;
+	if (!outputFile.empty()) {
+        
+		stepFunction =
+			[&ofs, &results](const std::vector<double>& state) {
+			for (const auto& val : state) {
+				ofs << std::scientific << std::setprecision(10) << val << "\t";
+			}
+			ofs << "\n";
+			results.push_back(state);
+			};
+	}
+	else {
+		stepFunction =
+			[&results](const std::vector<double>& state) {
+			results.push_back(state);
+			};
+	}
+
+	rk4.setStepFunction(stepFunction);
+	rk4.integrate(state);
+    ofs.close();
+	double yRms = getRms(results, 1, resultCalcStartTime);
+	double yMax = getMax(results, 1, resultCalcStartTime);
+	return DisplacementResults{ yRms,yMax };
 
 }
-MainStructure::MainStructure(){
+void NESSolver::refreshDesignValue(){
+    kDesign = main.getM() * (2 * PI * 1.0 * fDesign) * (2 * PI * 1.0 * fDesign);
+
+	cDesign = 2 * main.getKsi() * sqrt(kDesign * main.getM());
+}
+void NESSolver::refreshTao(){
+    timeStepSize = taoStepSize / main.getFN();
+    totalTime = totalTao / main.getFN();
+    resultCalcStartTime = resultCalcStartTao / main.getFN();
+}
+void NESSolver::refreshFuncs(){
+
+    refreshDesignValue();
+    funcs.clear();
+    double omega = 2 * PI * main.getFR();
+    double rou = main.getRou();
+    double B = main.getB();
+    double D = main.getD();
+    double ypDotFactor = PI * rou * B * main.getFR() * B;
+    double ypFactor = 2 * PI * PI * rou * B * B * B * main.getFR() * main.getFR() / D;
+    // function 0 t
+    funcs.push_back([](const std::vector<double>& state) { return 1; }); // t
+    funcs.push_back([this](const std::vector<double>& state) { 
+        return state[nesNumber + 2];
+    }); // yp_dot
+    for(int i = 1; i <= nesNumber; i++){
+        funcs.push_back([this, i](const std::vector<double>& state) 
+        { 
+            return state[nesNumber + 2 + i];
+        }); // yai_dot
+    }
+
+    funcs.push_back([this, omega, ypDotFactor, ypFactor](const std::vector<double>& state){
+        double fl;
+        double yp = state[1];
+        double ypv = state[nesNumber + 2];
+        
+        double current_A_star = std::sqrt(yp * yp + ypv * ypv / omega / omega) / main.getD();
+        double h1, h4;
+        std::vector<double> ya(nesNumber), yav(nesNumber);
+
+        model.getAeroCoeffs(current_A_star, h1, h4);
+        fl = ypDotFactor * h1 * ypv + ypFactor * h4 * yp;
+
+
+        double primaryDampingTerm = -main.getC() * state[nesNumber + 2]; // -damping * yp_dot
+        double primaryStiffnessTerm = -main.getK() * state[1]; // -stiffness * yp
+        double nesDampingTerm = 0.0, nesStiffnessTerm = 0.0;
+        for(size_t i = 1; i <= nesNumber; i++){
+            nesDampingTerm += -nes[i-1].c * (ypv - state[i + nesNumber + 2]);
+        }
+        for(size_t i = 1; i <= nesNumber; i++){
+            nesStiffnessTerm += 
+                -nes[i-1].k * (yp - state[i + 1])
+                            * (yp - state[i + 1])
+                            * (yp - state[i + 1]);
+            
+        }
+        return (
+            fl 
+            + primaryDampingTerm 
+            + primaryStiffnessTerm 
+            + nesDampingTerm 
+            + nesStiffnessTerm
+        ) / main.getM();
+    });// yp_dot_dot
+    for(int i = 1; i <= nesNumber; i++){
+        
+        funcs.push_back([this, i](const std::vector<double>& state) 
+        { 
+            double yp = state[1];
+            double ypv = state[nesNumber + 2];
+            return (
+                -nes[i-1].c * (state[i + nesNumber + 2] - ypv)
+                -nes[i-1].k * (state[i + 1] - yp) * (state[i + 1] - yp) * (state[i + 1] - yp)
+            ) / nes[i-1].m;
+        }); // yai_dot_dot
+    }
+}
+void NESSolver::refreshNES(){
+    for(auto n : nes){
+        n.m = main.getM() * n.mr;
+        n.k = kDesign * n.kr;
+        n.c = cDesign * n.cr;
+    }
+
+}
+void NESSolver::refreshModelParameters(){
+    model = ModelParameters(main.getUstar());
+}
+void NESSolver::refreshAll(){
+    refreshTao();
+    refreshDesignValue();
+    refreshNES();
+    refreshFuncs();
+    refreshModelParameters();
+}
+void NESSolver::printAll() const{
+    
+    std::cout << "-----------------Solver parameters-----------------" << std::endl;
+    std::cout << "nesNumber: " << nesNumber << std::endl;
+    std::cout << "dimension: " << dimension << std::endl;
+    std::cout << "initialAStar: " << initialAStar << std::endl;
+    std::cout << "fDesign: " << fDesign << std::endl;
+    std::cout << "taoStepSize: " << taoStepSize << std::endl;
+    std::cout << "totalTao: " << totalTao << std::endl;
+    std::cout << "resultCalcStartTao: " << resultCalcStartTao << std::endl;
+    std::cout << "timeStepSize: " << timeStepSize << std::endl;
+    std::cout << "totalTime: " << totalTime << std::endl;
+    std::cout << "resultCalcStartTime: " << resultCalcStartTime << std::endl;
+    std::cout << "kDesign: " << kDesign << std::endl;
+    std::cout << "cDesign: " << cDesign << std::endl;
+    std::cout << "outputFile: " << outputFile << std::endl;
+    int i = 1;
+    std::cout << "-------------------NES parameters------------------" << std::endl;
+    for(auto n : nes){
+        std::cout << "ma_" << i << ": " << n.m << std::endl;
+        std::cout << "ka_" << i << ": " << n.k << std::endl;
+        std::cout << "ca_" << i << ": " << n.c << std::endl;
+        i++;
+    }
+
+    main.print();
+
+}
+MainStructure::MainStructure(double u, double fn):
+UStar(u),
+fNatrual(fn)
+{
     refreshFReal();
     refreshDynParams();
 }
@@ -81,7 +294,8 @@ void MainStructure::refreshDynParams(){
 
 	damping = 2 * dampingRatio * sqrt(stiffness * mass);
 }
-void MainStructure::print(){
+void MainStructure::print() const{
+    std::cout << "-------------Main structure parameters-------------" << std::endl;
     std::cout << "Fluid density: " << rouFluid << std::endl;
     std::cout << "Reduced wind velocity: " << UStar << std::endl;
     std::cout << "Mass: " << mass << std::endl;
@@ -92,5 +306,5 @@ void MainStructure::print(){
     std::cout << "Real frequency(estimated): " << fReal << std::endl;
     std::cout << "Stiffness: " << stiffness << std::endl;
     std::cout << "Damping: " << damping << std::endl;
-
+    std::cout << "---------------------------------------------------" << std::endl;
 }

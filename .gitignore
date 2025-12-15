@@ -4,7 +4,8 @@ CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 Makefile
-# test femora
+# test
+stateTimeHistory.txt
 # 编译输出
 *.dll
 *.o
