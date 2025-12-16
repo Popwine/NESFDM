@@ -9,6 +9,7 @@ add_library(NESFDMCore STATIC
     src/RungeKutta4.cpp include/RungeKutta4.h
     src/NESSolver.cpp include/NESSolver.h
     src/NESFDMUtils.cpp include/NESFDMUtils.h
+    src/NESSweeper.cpp include/NESSweeper.h
 )
 
 target_include_directories(NESFDMCore PUBLIC
@@ -16,9 +17,9 @@ target_include_directories(NESFDMCore PUBLIC
 )
 
 add_executable(test apps/app_test_sandbox.cpp)
-add_executable(DoubleNesScan apps/app_double_scan.cpp)
-target_include_directories(DoubleNesScan PUBLIC
+add_executable(fdmnes apps/app_fdm_nes.cpp)
+target_include_directories(fdmnes PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
 target_link_libraries(test PRIVATE NESFDMCore)
-target_link_libraries(DoubleNesScan PRIVATE NESFDMCore)
+target_link_libraries(fdmnes PRIVATE NESFDMCore)

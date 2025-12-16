@@ -17,11 +17,11 @@ class DisplacementResults {
 public:
 	double yRms;
 	double yMax;
-	void print(double D) const {
-		std::cout << std::setprecision(10) << yRms / D << "\t" << yMax / D << std::endl;
+	void print() const {
+		std::cout << std::setprecision(10) << yRms << "\t" << yMax << std::endl;
 	}
-	void printRms(double D) const {
-		std::cout << std::setprecision(10) << yRms / D << std::endl;
+	void printRms() const {
+		std::cout << std::setprecision(10) << yRms << std::endl;
 	}
 
 };
