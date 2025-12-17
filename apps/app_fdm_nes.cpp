@@ -84,6 +84,18 @@ void checkArgValidation(Arguments& arg){
 	if(!arg.nesNum.has_value()){
 		throw std::runtime_error("NES number is required. Use \"-n\" to indecate.");
 	}
+	if(!arg.initialAStar.has_value()){arg.initialAStar = 0.06;}
+	if(!arg.totalTao.has_value()){arg.totalTao = 500;}
+	if(!arg.resultCalcStartTao.has_value()){arg.resultCalcStartTao = 250;}
+	if(!arg.taoStepSize.has_value()){arg.taoStepSize = 0.001;}
+	//if(!arg.fNatural.has_value()){arg.fNatural = 0.06;}在不同的config下需单独处理
+	//if(!arg.UStar.has_value()){arg.UStar = 1.117;}在不同的config下需单独处理
+	if(!arg.fDesign.has_value()){arg.fDesign = 1.117;}
+
+	
+	if((!arg.config.has_value())){arg.config = "single";}
+
+
 	// 非扫描的情况：
 	if((!arg.sweep.has_value()) || arg.sweep == false){
 		
@@ -111,15 +123,38 @@ void checkArgValidation(Arguments& arg){
 			throw std::runtime_error(missingMessage);
 		}
 		
+		if(!arg.outputFile.has_value()){arg.outputFile = "";}
+		
 	}
 	
+}
+void run(const Arguments& arg){
+	if(arg.sweep){
+
+	}
+	else{
+		NESSolver solver(arg.nesNum.value());
+		solver.setInitialAStar(arg.initialAStar.value());
+		solver.setTotalTao(arg.totalTao.value());
+		solver.setResultCalcStartTao(arg.resultCalcStartTao.value());
+		solver.setTaoStepSize(arg.taoStepSize.value());
+		solver.setMainFN(arg.fNatural.value());
+		solver.setFD(arg.fDesign.value());
+		solver.setUStar(arg.UStar.value());
+		solver.setOutput(arg.outputFile.value());
+		for(int i = 1; i <= arg.nesNum; i++){
+			solver.setNESMr(i, arg.mr[i-1].value());
+			
+		}
+		solver.printAll();
+	}
 }
 int main(int argc, char* argv[]){
 	try {
 		Arguments arg;
 		parseArguments(argc, argv, arg);
 		checkArgValidation(arg);
-		
+		run(arg);
 	}
 		catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;

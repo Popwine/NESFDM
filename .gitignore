@@ -6,6 +6,7 @@ cmake_install.cmake
 Makefile
 # test
 stateTimeHistory.txt
+*.out
 # 编译输出
 *.dll
 *.o
