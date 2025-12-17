@@ -1,7 +1,8 @@
 #include "NESSolver.h"
 #include "CLI11.hpp"
 #include <optional>
-
+#include <chrono>
+#define NES_MAX_NUM 9
 struct Arguments{
     std::optional<double> initialAStar;
     // tao = f_n * t
@@ -18,13 +19,16 @@ struct Arguments{
 	std::optional<std::string> config;		// single(default) 3m3u
 	std::optional<std::string> objFunc;	// avg max avg_max(default)
 	std::optional<std::string> sweepParamsFile;
+	std::optional<bool> showTime;
 	std::optional<bool> sweep;
-	
+	std::optional<bool> printDetail;
 
 	std::optional<int> nesNum;
-	std::vector<std::optional<double>> mr = std::vector<std::optional<double>>(9);
-    std::vector<std::optional<double>> kr = std::vector<std::optional<double>>(9);
-    std::vector<std::optional<double>> cr = std::vector<std::optional<double>>(9);
+	std::vector<std::optional<double>> mr = std::vector<std::optional<double>>(NES_MAX_NUM);
+    std::vector<std::optional<double>> kr = std::vector<std::optional<double>>(NES_MAX_NUM);
+    std::vector<std::optional<double>> cr = std::vector<std::optional<double>>(NES_MAX_NUM);
+
+	
 
 };
 
@@ -42,7 +46,7 @@ void parseArguments(int argc, char* argv[], Arguments& arg){
 
 	app.add_option("--ustar", arg.UStar, "Reduced Wind Velocity");
 
-	app.add_option("-n,--nes-number", arg.nesNum, "NES Number (0 ~ 9)");
+	app.add_option("-n,--nes-number", arg.nesNum, "NES Number (0 ~ "+std::to_string(NES_MAX_NUM)+")");
 
 	app.add_option("--out", arg.outputFile, "State Time History Output File Path");
 	app.add_option("--config", arg.config, 
@@ -54,11 +58,11 @@ void parseArguments(int argc, char* argv[], Arguments& arg){
 		avg, average, max, max_avg\
 		");
 	app.add_option("--sweep-params", arg.sweepParamsFile, "Sweep Parameters File Path");
-
+	app.add_flag("-t,--time", arg.showTime, "Show calculation time flag");
 	app.add_flag("-s,--sweep", arg.sweep, "Sweep flag");
+	app.add_flag("--pd,--print-details", arg.printDetail, "Print details flag");
 	
-	
-	for(int i = 1; i <= 9; i++){
+	for(int i = 1; i <= NES_MAX_NUM; i++){
 		std::string cmd = "--mr" + std::to_string(i);
 		std::string help = "Mass ratio for NES" + std::to_string(i);
 		app.add_option(cmd, arg.mr[i-1], help);
@@ -82,7 +86,7 @@ void parseArguments(int argc, char* argv[], Arguments& arg){
 }
 void checkArgValidation(Arguments& arg){
 	if(!arg.nesNum.has_value()){
-		throw std::runtime_error("NES number is required. Use \"-n\" to indecate.");
+		throw std::runtime_error("NES number is required. Use \"-n\" to specify.");
 	}
 	if(!arg.initialAStar.has_value()){arg.initialAStar = 0.06;}
 	if(!arg.totalTao.has_value()){arg.totalTao = 500;}
@@ -92,16 +96,29 @@ void checkArgValidation(Arguments& arg){
 	//if(!arg.UStar.has_value()){arg.UStar = 1.117;}在不同的config下需单独处理
 	if(!arg.fDesign.has_value()){arg.fDesign = 1.117;}
 
-	
+		
 	if((!arg.config.has_value())){arg.config = "single";}
 
-
+	if(arg.config.value() == "single"){
+		if(!arg.fNatural.has_value()){arg.fNatural = 1.117;}
+		if(!arg.UStar.has_value()){arg.UStar = 1.7;}
+	}
+	else if(arg.config.value() == "3m3u"){
+		if(arg.fNatural.has_value() || arg.UStar.has_value()){
+			throw std::runtime_error("fn and ustar can't be specified when config is 3m3u.");
+		}
+	}else{
+		throw std::runtime_error("Unsupported config.");
+	}
+	if(!arg.showTime.has_value()){arg.showTime = false;}
+	if(!arg.sweep.has_value()){arg.sweep = false;}
+	if(!arg.printDetail.has_value()){arg.printDetail = false;}
 	// 非扫描的情况：
-	if((!arg.sweep.has_value()) || arg.sweep == false){
+	if(arg.sweep == false){
 		
 		// 检验nes参数是否全面
 		std::string missingMessage;
-		for(int i = 1; i <= arg.nesNum; i++){
+		for(int i = 1; i <= arg.nesNum.value(); i++){
 			if(!arg.mr[i-1].has_value()){
 				missingMessage += (
 					"Mass ratio      of NES " + std::to_string(i) + " is required. Use \"--mr" + std::to_string(i) + "\" to specify.\n"
@@ -119,41 +136,78 @@ void checkArgValidation(Arguments& arg){
 			}
 			
 		}
+		for(int i = arg.nesNum.value() + 1; i <= NES_MAX_NUM; i++){
+			if(arg.mr[i-1].has_value() || arg.kr[i-1].has_value() || arg.cr[i-1].has_value()){
+				throw std::runtime_error("Specified parameters for a non-existent nes.");
+			}
+		}
 		if(missingMessage.empty() == false){
 			throw std::runtime_error(missingMessage);
 		}
 		
 		if(!arg.outputFile.has_value()){arg.outputFile = "";}
+
+		
 		
 	}
 	
 }
 void run(const Arguments& arg){
-	if(arg.sweep){
+	auto start = std::chrono::high_resolution_clock::now();
+	if(arg.sweep.value()){
 
 	}
 	else{
 		NESSolver solver(arg.nesNum.value());
+		
 		solver.setInitialAStar(arg.initialAStar.value());
 		solver.setTotalTao(arg.totalTao.value());
 		solver.setResultCalcStartTao(arg.resultCalcStartTao.value());
 		solver.setTaoStepSize(arg.taoStepSize.value());
-		solver.setMainFN(arg.fNatural.value());
+		
 		solver.setFD(arg.fDesign.value());
-		solver.setUStar(arg.UStar.value());
+		
 		solver.setOutput(arg.outputFile.value());
+		
 		for(int i = 1; i <= arg.nesNum; i++){
 			solver.setNESMr(i, arg.mr[i-1].value());
-			
+			solver.setNESKr(i, arg.kr[i-1].value());
+			solver.setNESCr(i, arg.cr[i-1].value());
 		}
-		solver.printAll();
+		
+		if(arg.printDetail.value()){solver.printAll();}
+		
+		if(arg.config.value() == "single"){
+			solver.setMainFN(arg.fNatural.value());
+			solver.setUStar(arg.UStar.value());
+			auto result = solver.run();
+			result.print();
+		}
+		
+		else if (arg.config.value() == "3m3u"){
+			auto results = solver.runConfig3m3u();
+			
+			for(const auto& result : results){
+				result.print();
+			}
+		}
+		
 	}
+
+	auto end = std::chrono::high_resolution_clock::now();
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+	if(arg.showTime.value()){
+		std::cout << "Run time: " << duration.count() << " ms\n";
+	}
+	
 }
 int main(int argc, char* argv[]){
 	try {
 		Arguments arg;
 		parseArguments(argc, argv, arg);
+		
 		checkArgValidation(arg);
+		
 		run(arg);
 	}
 		catch (const std::exception& e) {

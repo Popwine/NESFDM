@@ -9,6 +9,7 @@ struct NES{
     double m = 0.0;
     double k = 0.0;
     double c = 0.0;
+    double invM = 0.0;
 };
 class MainStructure{
 public:
@@ -100,6 +101,7 @@ public:
     void printMain() const{main.print();};
 
     DisplacementResults run();
+    std::vector<DisplacementResults> runConfig3m3u();
 public:
     std::vector<std::function<double(const std::vector<double>&)>> funcs;
 public:

@@ -126,6 +126,23 @@ DisplacementResults NESSolver::run(){
 	return DisplacementResults{ yRms,yMax };
 
 }
+
+std::vector<DisplacementResults> NESSolver::runConfig3m3u(){
+    double U_stars[3] = { 1.6, 1.7, 1.8 };
+    double naturalFreq[3] = { 0.1705 / 0.2325 * 1.117, 1.117, 0.3687 / 0.2325 * 1.117 };
+    std::vector<DisplacementResults> allResults;
+    for (double fn : naturalFreq) {
+        setMainFN(fn);
+        for (double U_star : U_stars) {
+            setUStar(U_star);
+            auto results = run();
+            allResults.push_back(results);
+            
+        }
+        
+    }
+    return allResults;
+}
 void NESSolver::refreshDesignValue(){
     kDesign = main.getM() * (2 * PI * 1.0 * fDesign) * (2 * PI * 1.0 * fDesign);
 
@@ -157,15 +174,17 @@ void NESSolver::refreshFuncs(){
             return state[nesNumber + 2 + i];
         }); // yai_dot
     }
-
-    funcs.push_back([this, omega, ypDotFactor, ypFactor](const std::vector<double>& state){
+    double invMainM = 1.0 / main.getM();
+    double invMainD = 1.0 / main.getD();
+    double invOmega = 1.0 / omega;
+    funcs.push_back([this, invMainM, invMainD, invOmega, ypDotFactor, ypFactor](const std::vector<double>& state){
         double fl;
         double yp = state[1];
         double ypv = state[nesNumber + 2];
         
-        double current_A_star = std::sqrt(yp * yp + ypv * ypv / omega / omega) / main.getD();
+        double current_A_star = std::sqrt(yp * yp + ypv * ypv * invOmega * invOmega) * invMainD;
         double h1, h4;
-        std::vector<double> ya(nesNumber), yav(nesNumber);
+        //std::vector<double> ya(nesNumber), yav(nesNumber);
 
         model.getAeroCoeffs(current_A_star, h1, h4);
         fl = ypDotFactor * h1 * ypv + ypFactor * h4 * yp;
@@ -190,7 +209,7 @@ void NESSolver::refreshFuncs(){
             + primaryStiffnessTerm 
             + nesDampingTerm 
             + nesStiffnessTerm
-        ) / main.getM();
+        ) * invMainM;
     });// yp_dot_dot
     for(int i = 1; i <= nesNumber; i++){
         
@@ -201,15 +220,20 @@ void NESSolver::refreshFuncs(){
             return (
                 -nes[i-1].c * (state[i + nesNumber + 2] - ypv)
                 -nes[i-1].k * (state[i + 1] - yp) * (state[i + 1] - yp) * (state[i + 1] - yp)
-            ) / nes[i-1].m;
+            ) * nes[i-1].invM;
         }); // yai_dot_dot
     }
 }
 void NESSolver::refreshNES(){
-    for(auto n : nes){
+    for(auto& n : nes){
         n.m = main.getM() * n.mr;
-        n.k = kDesign * n.kr;
+        n.k = kDesign * n.kr / main.getD() / main.getD();
         n.c = cDesign * n.cr;
+    }
+    for(auto& n : nes){ // 注意加引用 &，否则修改不到原数组
+        n.m = main.getM() * n.mr;
+        n.invM = 1.0 / n.m; // 预计算倒数
+
     }
 
 }
