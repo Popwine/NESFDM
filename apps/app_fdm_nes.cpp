@@ -2,6 +2,7 @@
 #include "CLI11.hpp"
 #include <optional>
 #include <chrono>
+#include "NESSweeper.h"
 #define NES_MAX_NUM 9
 struct Arguments{
     std::optional<double> initialAStar;
@@ -28,6 +29,7 @@ struct Arguments{
     std::vector<std::optional<double>> kr = std::vector<std::optional<double>>(NES_MAX_NUM);
     std::vector<std::optional<double>> cr = std::vector<std::optional<double>>(NES_MAX_NUM);
 
+	std::optional<double> totalMassRatio;
 	
 
 };
@@ -45,7 +47,7 @@ void parseArguments(int argc, char* argv[], Arguments& arg){
 	app.add_option("--fd", arg.fDesign, "Design Frequency");
 
 	app.add_option("--ustar", arg.UStar, "Reduced Wind Velocity");
-
+	app.add_option("--total-mass-ratio", arg.totalMassRatio, "Total Mass Ratio");
 	app.add_option("-n,--nes-number", arg.nesNum, "NES Number (0 ~ "+std::to_string(NES_MAX_NUM)+")");
 
 	app.add_option("--out", arg.outputFile, "State Time History Output File Path");
@@ -96,7 +98,7 @@ void checkArgValidation(Arguments& arg){
 	//if(!arg.UStar.has_value()){arg.UStar = 1.117;}在不同的config下需单独处理
 	if(!arg.fDesign.has_value()){arg.fDesign = 1.117;}
 
-		
+	
 	if((!arg.config.has_value())){arg.config = "single";}
 
 	if(arg.config.value() == "single"){
@@ -113,9 +115,9 @@ void checkArgValidation(Arguments& arg){
 	if(!arg.showTime.has_value()){arg.showTime = false;}
 	if(!arg.sweep.has_value()){arg.sweep = false;}
 	if(!arg.printDetail.has_value()){arg.printDetail = false;}
-	// 非扫描的情况：
+	
 	if(arg.sweep == false){
-		
+		// 非扫描的情况：
 		// 检验nes参数是否全面
 		std::string missingMessage;
 		for(int i = 1; i <= arg.nesNum.value(); i++){
@@ -147,25 +149,48 @@ void checkArgValidation(Arguments& arg){
 		
 		if(!arg.outputFile.has_value()){arg.outputFile = "";}
 
+		if(arg.totalMassRatio.has_value()){
+			throw std::runtime_error("Total mass ratio can't be specified when not sweeping.");
+		}
 		
-		
+	}else{
+		// 扫描的情况：
+		if((!arg.sweepParamsFile.has_value())){
+			throw std::runtime_error("Sweep parameters file must be specified when sweeping.");
+		}
+		if(!arg.totalMassRatio.has_value()){
+			throw std::runtime_error("Total mass ratio must be specified when sweeping.");
+		}
+		for(int i = 1; i <= NES_MAX_NUM; i++){
+			if(arg.mr[i-1].has_value() || arg.kr[i-1].has_value() || arg.cr[i-1].has_value()){
+				throw std::runtime_error(
+					"NES parameters can't be specified in \
+					command when sweeping. Use --sweep-params.");
+			}
+		}
 	}
 	
 }
 void run(const Arguments& arg){
 	auto start = std::chrono::high_resolution_clock::now();
+	NESSolver solver(arg.nesNum.value());
+	solver.setInitialAStar(arg.initialAStar.value());
+	solver.setTotalTao(arg.totalTao.value());
+	solver.setResultCalcStartTao(arg.resultCalcStartTao.value());
+	solver.setTaoStepSize(arg.taoStepSize.value());
+	
+	solver.setFD(arg.fDesign.value());
 	if(arg.sweep.value()){
-
+		NESSweeper sweeper(solver, arg.sweepParamsFile.value(), arg.totalMassRatio.value());
+		if(arg.printDetail.value()){
+			sweeper.printDatas();
+		}
+		sweeper.run();
 	}
 	else{
-		NESSolver solver(arg.nesNum.value());
 		
-		solver.setInitialAStar(arg.initialAStar.value());
-		solver.setTotalTao(arg.totalTao.value());
-		solver.setResultCalcStartTao(arg.resultCalcStartTao.value());
-		solver.setTaoStepSize(arg.taoStepSize.value());
 		
-		solver.setFD(arg.fDesign.value());
+		
 		
 		solver.setOutput(arg.outputFile.value());
 		

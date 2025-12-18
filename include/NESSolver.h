@@ -106,6 +106,7 @@ public:
     std::vector<std::function<double(const std::vector<double>&)>> funcs;
 public:
     double getFD() const{return fDesign;};
+    int getNESNumber() const{return nesNumber;};
     void refreshAll();
     void printAll() const;
 private:
