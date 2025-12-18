@@ -50,7 +50,7 @@ void parseArguments(int argc, char* argv[], Arguments& arg){
 	app.add_option("--total-mass-ratio", arg.totalMassRatio, "Total Mass Ratio");
 	app.add_option("-n,--nes-number", arg.nesNum, "NES Number (0 ~ "+std::to_string(NES_MAX_NUM)+")");
 
-	app.add_option("--out", arg.outputFile, "State Time History Output File Path");
+	app.add_option("--out", arg.outputFile, "Output File Path (State Time History or Sweeping Results)");
 	app.add_option("--config", arg.config, 
 		"Config for Single Calculation: \n\
 		single: use indicated params(Ustar, fn); \n\
@@ -115,7 +115,7 @@ void checkArgValidation(Arguments& arg){
 	if(!arg.showTime.has_value()){arg.showTime = false;}
 	if(!arg.sweep.has_value()){arg.sweep = false;}
 	if(!arg.printDetail.has_value()){arg.printDetail = false;}
-	
+	if(!arg.outputFile.has_value()){arg.outputFile = "";}
 	if(arg.sweep == false){
 		// 非扫描的情况：
 		// 检验nes参数是否全面
@@ -147,7 +147,7 @@ void checkArgValidation(Arguments& arg){
 			throw std::runtime_error(missingMessage);
 		}
 		
-		if(!arg.outputFile.has_value()){arg.outputFile = "";}
+		
 
 		if(arg.totalMassRatio.has_value()){
 			throw std::runtime_error("Total mass ratio can't be specified when not sweeping.");
@@ -182,6 +182,7 @@ void run(const Arguments& arg){
 	solver.setFD(arg.fDesign.value());
 	if(arg.sweep.value()){
 		NESSweeper sweeper(solver, arg.sweepParamsFile.value(), arg.totalMassRatio.value());
+		sweeper.setOutFile(arg.outputFile.value());
 		if(arg.printDetail.value()){
 			sweeper.printDatas();
 		}
@@ -235,7 +236,7 @@ int main(int argc, char* argv[]){
 		
 		run(arg);
 	}
-		catch (const std::exception& e) {
+	catch (const std::exception& e) {
 		std::cerr << "Error: " << e.what() << std::endl;
 		return 1;
 	}

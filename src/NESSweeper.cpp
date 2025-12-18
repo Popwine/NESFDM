@@ -186,14 +186,32 @@ void NESSweeper::printConfigs(){
 }
 
 void NESSweeper::run(){
+    std::ofstream ofs(outFile);
+    ofs << std::scientific << std::setprecision(10);
     if(nesNum == 1){
         solver.setNESMr(1, totalMassRatio);
-        for(const double kr : krDatas[0])
-        for(const double cr : crDatas[0]){
-            std::cout << totalMassRatio << "\t" << kr << "\t" << cr << std::endl;
+        double configNum =  static_cast<double>(krDatas.size() * crDatas.size());
+        int i = 0;
+        for(const double kr : krDatas[0]){
+            for(const double cr : crDatas[0]){
+                solver.setNESKr(1, kr);
+                solver.setNESCr(1, cr);
+                auto result = solver.runConfig3m3u();
+                ofs << kr << "," << cr ;
+                for(const auto& r : result){
+                    ofs << "," << r.yRms ;
+                }
+                i++;
+                std::cout << "Progress: " << static_cast<double>(i) / configNum * 100.0 <<"%" <<std::endl;
+            }
             
         }
+
+
+
+        
     }
+    ofs.close();
 }
 void NESSweeper::checkParamsIntegrity(){
     std::vector<bool> mrFlag(nesNum - 1, false);

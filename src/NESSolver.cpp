@@ -121,6 +121,7 @@ DisplacementResults NESSolver::run(){
 	rk4.setStepFunction(stepFunction);
 	rk4.integrate(state);
     ofs.close();
+    
 	double yRms = getRms(results, 1, resultCalcStartTime) / main.getD();
 	double yMax = getMax(results, 1, resultCalcStartTime) / main.getD();
 	return DisplacementResults{ yRms,yMax };
