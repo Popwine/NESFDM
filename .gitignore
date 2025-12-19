@@ -7,6 +7,7 @@ Makefile
 # test
 stateTimeHistory.txt
 *.out
+out.txt
 # 编译输出
 *.dll
 *.o

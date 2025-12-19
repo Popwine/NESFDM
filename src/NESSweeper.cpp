@@ -190,7 +190,8 @@ void NESSweeper::run(){
     ofs << std::scientific << std::setprecision(10);
     if(nesNum == 1){
         solver.setNESMr(1, totalMassRatio);
-        double configNum =  static_cast<double>(krDatas.size() * crDatas.size());
+        ofs << "kr,cr,m1u1,m1u2,m1u3,m2u1,m2u2,m2u3,m3u1,m3u2,m3u3" << std::endl;
+        double configNum =  static_cast<double>(krDatas[0].size() * crDatas[0].size());
         int i = 0;
         for(const double kr : krDatas[0]){
             for(const double cr : crDatas[0]){
@@ -201,6 +202,7 @@ void NESSweeper::run(){
                 for(const auto& r : result){
                     ofs << "," << r.yRms ;
                 }
+                ofs << "\n";
                 i++;
                 std::cout << "Progress: " << static_cast<double>(i) / configNum * 100.0 <<"%" <<std::endl;
             }
