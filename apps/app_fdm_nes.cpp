@@ -23,6 +23,7 @@ struct Arguments{
 	std::optional<bool> showTime;
 	std::optional<bool> sweep;
 	std::optional<bool> printDetail;
+	std::optional<bool> binary;
 
 	std::optional<int> nesNum;
 	std::vector<std::optional<double>> mr = std::vector<std::optional<double>>(NES_MAX_NUM);
@@ -115,10 +116,11 @@ void checkArgValidation(Arguments& arg){
 	if(!arg.showTime.has_value()){arg.showTime = false;}
 	if(!arg.sweep.has_value()){arg.sweep = false;}
 	if(!arg.printDetail.has_value()){arg.printDetail = false;}
-	if(!arg.outputFile.has_value()){arg.outputFile = "";}
+	
 	if(arg.sweep == false){
 		// 非扫描的情况：
 		// 检验nes参数是否全面
+		if(!arg.outputFile.has_value()){arg.outputFile = "";}
 		std::string missingMessage;
 		for(int i = 1; i <= arg.nesNum.value(); i++){
 			if(!arg.mr[i-1].has_value()){
@@ -161,11 +163,14 @@ void checkArgValidation(Arguments& arg){
 		if(!arg.totalMassRatio.has_value()){
 			throw std::runtime_error("Total mass ratio must be specified when sweeping.");
 		}
+		if(!arg.outputFile.has_value()){
+			throw std::runtime_error("Output file must be specified when sweeping.");
+		}
 		for(int i = 1; i <= NES_MAX_NUM; i++){
 			if(arg.mr[i-1].has_value() || arg.kr[i-1].has_value() || arg.cr[i-1].has_value()){
 				throw std::runtime_error(
 					"NES parameters can't be specified in \
-					command when sweeping. Use --sweep-params.");
+					command when sweeping. Use --sweep-params and specify in a file.");
 			}
 		}
 	}

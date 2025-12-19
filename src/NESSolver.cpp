@@ -62,12 +62,20 @@ void NESSolver::setNESMr(size_t i, double mr_){
     if(i == 0 || i > nesNumber){
         throw std::runtime_error("Index out of range in setNESMr, i is a 1-based index.");
     }
+    if(mr_ < 0){
+        throw std::runtime_error("Mass ratio of NES must be positive.");
+    
+    }
     this->nes[i-1].mr = mr_;
     this->nes[i-1].m = main.getM() * mr_;
 }
 void NESSolver::setNESKr(size_t i, double kr_){
     if(i == 0 || i > nesNumber){
         throw std::runtime_error("Index out of range in setNESKr, i is a 1-based index.");
+    }
+    if(kr_ < 0){
+        throw std::runtime_error("Stiffness ratio of NES must be positive.");
+    
     }
     refreshDesignValue();
     this->nes[i-1].kr = kr_;
@@ -76,6 +84,10 @@ void NESSolver::setNESKr(size_t i, double kr_){
 void NESSolver::setNESCr(size_t i, double cr_){
     if(i == 0 || i > nesNumber){
         throw std::runtime_error("Index out of range in setNESCr, i is a 1-based index.");
+    }
+    if(cr_ < 0){
+        throw std::runtime_error("Damping ratio of NES must be positive.");
+    
     }
     refreshDesignValue();
     this->nes[i-1].cr = cr_;
@@ -141,6 +153,9 @@ std::vector<DisplacementResults> NESSolver::runConfig3m3u(){
             
         }
         
+    }
+    if(allResults.size() != 9){
+        throw std::runtime_error("Number of results for 3m3u is not 9!");
     }
     return allResults;
 }

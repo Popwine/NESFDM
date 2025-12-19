@@ -187,7 +187,10 @@ void NESSweeper::printConfigs(){
 
 void NESSweeper::run(){
     std::ofstream ofs(outFile);
-    ofs << std::scientific << std::setprecision(10);
+    if (!ofs) {
+        throw std::runtime_error("Cannot open out file \"" + outFile + "\".");
+    }
+    ofs << std::scientific << std::setprecision(8);
     if(nesNum == 1){
         solver.setNESMr(1, totalMassRatio);
         ofs << "kr,cr,m1u1,m1u2,m1u3,m2u1,m2u2,m2u3,m3u1,m3u2,m3u3" << std::endl;
@@ -204,14 +207,53 @@ void NESSweeper::run(){
                 }
                 ofs << "\n";
                 i++;
-                std::cout << "Progress: " << static_cast<double>(i) / configNum * 100.0 <<"%" <<std::endl;
+                std::cout << "Progress: " << static_cast<double>(i) / configNum * 100.0 << "%" <<std::endl;
             }
             
         }
 
-
-
+    }
+    else if(nesNum == 2){
+        solver.setNESMr(2, totalMassRatio);
+        ofs << "mr1,kr1,cr1,mr2,kr2,cr2,m1u1,m1u2,m1u3,m2u1,m2u2,m2u3,m3u1,m3u2,m3u3" << std::endl;
+        double configNum =  static_cast<double>(
+            mrDatas[0].size() *
+            krDatas[0].size() * crDatas[0].size() *
+            krDatas[1].size() * crDatas[1].size()
+        );
+        int i = 0;
+        for(const double mr1 : mrDatas[0])
+        for(const double kr1 : krDatas[0])
+        for(const double cr1 : crDatas[0])
+        for(const double kr2 : krDatas[1])
+        for(const double cr2 : crDatas[1]){
+            double mr2 = totalMassRatio - mr1;
+            solver.setNESMr(1, mr1);
+            solver.setNESKr(1, kr1);
+            solver.setNESCr(1, cr1);
+            solver.setNESMr(2, mr2);
+            solver.setNESKr(2, kr2);
+            solver.setNESCr(2, cr2);
+            auto result = solver.runConfig3m3u();
+            ofs 
+            << mr1 << "," 
+            << kr1 << "," 
+            << cr1 << "," 
+            << mr2 << "," 
+            << kr2 << "," 
+            << cr2  ;
+            
+            for(const auto& r : result){
+                ofs << "," << r.yRms ;
+            }
+            ofs << "\n";
+            i++;
+            std::cout << "Progress: " << static_cast<double>(i) / configNum * 100.0 << "%" <<std::endl;
+        }
+            
         
+    }else{
+        throw std::runtime_error("Nes number > 2 is not supported for sweeping.");
     }
     ofs.close();
 }
