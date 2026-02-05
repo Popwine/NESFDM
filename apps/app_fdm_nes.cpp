@@ -13,8 +13,10 @@ struct Arguments{
 
 	std::optional<double> fNatural;
 	std::optional<double> fDesign;
+	std::optional<double> ksiDesign;
 
 	std::optional<double> UStar;
+	std::optional<double> ksi;
 
 	std::optional<std::string> outputFile;
 	std::optional<std::string> config;		// single(default) 3m3u
@@ -45,7 +47,9 @@ void parseArguments(int argc, char* argv[], Arguments& arg){
 	app.add_option("--dtao", arg.taoStepSize, "Tao Step Size");
 
 	app.add_option("--fn", arg.fNatural, "Natural Frequency");
+	app.add_option("--ksi", arg.ksi, "Damping ratio of main structure");
 	app.add_option("--fd", arg.fDesign, "Design Frequency");
+	app.add_option("--ksi-design", arg.ksiDesign, "Design damping ratio");
 
 	app.add_option("--ustar", arg.UStar, "Reduced Wind Velocity");
 	app.add_option("--total-mass-ratio", arg.totalMassRatio, "Total Mass Ratio");
@@ -98,13 +102,20 @@ void checkArgValidation(Arguments& arg){
 	//if(!arg.fNatural.has_value()){arg.fNatural = 0.06;}在不同的config下需单独处理
 	//if(!arg.UStar.has_value()){arg.UStar = 1.117;}在不同的config下需单独处理
 	if(!arg.fDesign.has_value()){arg.fDesign = 1.117;}
-
+	if(!arg.ksiDesign.has_value()){arg.ksiDesign = 0.003;}
+	if(!arg.ksi.has_value()){arg.ksi = 0.003;}
 	
 	if((!arg.config.has_value())){arg.config = "single";}
 
 	if(arg.config.value() == "single"){
 		if(!arg.fNatural.has_value()){arg.fNatural = 1.117;}
+		
 		if(!arg.UStar.has_value()){arg.UStar = 1.7;}
+	}
+	else if(arg.config.value() == "1m3u"){
+		if(arg.UStar.has_value()){
+			throw std::runtime_error("ustar can't be specified when config is 1m3u.");
+		}
 	}
 	else if(arg.config.value() == "3m3u"){
 		if(arg.fNatural.has_value() || arg.UStar.has_value()){
@@ -179,6 +190,8 @@ void checkArgValidation(Arguments& arg){
 void run(const Arguments& arg){
 	auto start = std::chrono::high_resolution_clock::now();
 	NESSolver solver(arg.nesNum.value());
+	solver.setMainDampingRatio(arg.ksi.value());
+	solver.setDesignDampingRatio(arg.ksiDesign.value());
 	solver.setInitialAStar(arg.initialAStar.value());
 	solver.setTotalTao(arg.totalTao.value());
 	solver.setResultCalcStartTao(arg.resultCalcStartTao.value());
@@ -214,7 +227,13 @@ void run(const Arguments& arg){
 			auto result = solver.run();
 			result.print();
 		}
-		
+		else if (arg.config.value() == "1m3u"){
+			auto results = solver.runConfig1m3u();
+			
+			for(const auto& result : results){
+				result.print();
+			}
+		}
 		else if (arg.config.value() == "3m3u"){
 			auto results = solver.runConfig3m3u();
 			

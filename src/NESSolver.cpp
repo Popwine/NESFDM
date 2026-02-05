@@ -33,6 +33,14 @@ void NESSolver::setMainFN(double fn_){
     main.setFN(fn_); 
     refreshAll();
 };
+void NESSolver::setMainDampingRatio(double ksi_){
+    main.setDampingRatio(ksi_); 
+    refreshAll();
+}
+void NESSolver::setDesignDampingRatio(double ksiDesign_){
+    ksiDesign = ksiDesign_;
+    refreshAll();
+}
 void NESSolver::setUStar(double u_){
     main.setUStar(u_); 
     refreshDesignValue();
@@ -159,10 +167,27 @@ std::vector<DisplacementResults> NESSolver::runConfig3m3u(){
     }
     return allResults;
 }
+std::vector<DisplacementResults> NESSolver::runConfig1m3u(){
+    double U_stars[3] = { 1.6, 1.7, 1.8 };
+    std::vector<DisplacementResults> allResults;
+
+    for (double U_star : U_stars) {
+        setUStar(U_star);
+        auto results = run();
+        allResults.push_back(results);
+        
+    }
+        
+    
+    if(allResults.size() != 3){
+        throw std::runtime_error("Number of results for 1m3u is not 3!");
+    }
+    return allResults;
+}
 void NESSolver::refreshDesignValue(){
     kDesign = main.getM() * (2 * PI * 1.0 * fDesign) * (2 * PI * 1.0 * fDesign);
 
-	cDesign = 2 * main.getKsi() * sqrt(kDesign * main.getM());
+	cDesign = 2 * ksiDesign * sqrt(kDesign * main.getM());
 }
 void NESSolver::refreshTao(){
     timeStepSize = taoStepSize / main.getFN();
@@ -276,6 +301,7 @@ void NESSolver::printAll() const{
     std::cout << "timeStepSize: " << timeStepSize << std::endl;
     std::cout << "totalTime: " << totalTime << std::endl;
     std::cout << "resultCalcStartTime: " << resultCalcStartTime << std::endl;
+    std::cout << "ksiDesign: " << ksiDesign << std::endl;
     std::cout << "kDesign: " << kDesign << std::endl;
     std::cout << "cDesign: " << cDesign << std::endl;
     std::cout << "outputFile: " << outputFile << std::endl;

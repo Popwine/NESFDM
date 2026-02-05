@@ -19,6 +19,7 @@ int main(int argc, char* argv[]){
         }
         auto result = solver.run();
         result.print();
+        solver.printMain();
     }
     catch(const std::exception& e){
         std::cerr << "Parsing Error: " << e.what() << std::endl;

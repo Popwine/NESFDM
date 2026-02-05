@@ -17,13 +17,14 @@ public:
     void setFN(double fn_){fNatrual = fn_; refreshFReal(); refreshDynParams();};
     void setFNByMode(int mode);
     void setUStar(double u_){UStar = u_; refreshFReal(); };
+    void setDampingRatio(double ksi_){dampingRatio = ksi_; refreshDynParams();}
     void print() const;
 private:
 	const double rouFluid = 1.225;
     double UStar = 1.7;
     const double mass = 7.32; // mass of the particle
 	const double fRealFactors[3] = { 0.968468691, 0.973652933, 0.979006853 };
-	const double dampingRatio = 0.003;
+	double dampingRatio = 0.003;
 	const double D = 0.0532;
 	const double B = 0.7117;
     double fNatrual = 1.117;
@@ -68,7 +69,7 @@ private:
     
     double initialAStar = 0.06;
     double fDesign = 1.117;
-
+    double ksiDesign = 0.003;
     // tao = f * time
     double taoStepSize = 0.001;
     double totalTao = 500;
@@ -88,6 +89,8 @@ public:
     void setInitialAStar(double a_){initialAStar = a_; };
     void setFD(double fd_);
     void setMainFN(double fn_);
+    void setMainDampingRatio(double ksi_);
+    void setDesignDampingRatio(double ksiDesign_);
     void setUStar(double u_);
     void setMainFNByMode(int mode_);
     void setTaoStepSize(double taoStepSize_);
@@ -102,6 +105,7 @@ public:
 
     DisplacementResults run();
     std::vector<DisplacementResults> runConfig3m3u();
+    std::vector<DisplacementResults> runConfig1m3u();
 public:
     std::vector<std::function<double(const std::vector<double>&)>> funcs;
 public:
@@ -115,4 +119,5 @@ private:
     void refreshFuncs();
     void refreshNES();
     void refreshModelParameters();
+
 };
